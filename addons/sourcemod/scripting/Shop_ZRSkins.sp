@@ -8,16 +8,18 @@
 
 #include <zombiereloaded>
 #include <shop>
-#include <multicolors>
+#include <morecolors>
+
+#include <vip_core>
 
 // ==============================================================================================================================
 // >>> PLUGIN INFORMATION
 // ==============================================================================================================================
-#define PLUGIN_VERSION "1.1"
+#define PLUGIN_VERSION "1.4"
 public Plugin myinfo =
 {
 	name 			= "[Shop] ZR Skins",
-	author 			= "AlexTheRegent",
+	author 			= "AlexTheRegent, +SyntX",
 	description 	= "Buy ZR skins in the shop",
 	version 		= PLUGIN_VERSION,
 	url 			= ""
@@ -96,9 +98,45 @@ public void OnMapStart()
 
 public void OnClientPutInServer(int client)
 {
-	g_skin_zombie[client][0] = 0;
-	g_skin_human[client][0] = 0;
+
+    g_skin_zombie[client][0] = 0;
+    g_skin_human[client][0] = 0;
+
+    // Check if the player is VIP
+    if (VIP_IsClientVIP(client)) {
+
+        return;
+    }
+
+
+    if (g_skin_zombie[client][0] != 0) {
+
+        if (IsVIPSkin(g_skin_zombie[client])) {
+            // Untoggle the VIP zombie skin for non-VIP players
+            g_skin_zombie[client][0] = 0;
+            CPrintToChat(client, "{red}[Shop] {default}You cannot use this VIP zombie skin as you're not a VIP.");
+        }
+    }
+
+    // Check if they have a human skin selected
+    if (g_skin_human[client][0] != 0) {
+
+        if (IsVIPSkin(g_skin_human[client])) {
+            // Untoggle the VIP human skin for non-VIP players
+            g_skin_human[client][0] = 0;
+            CPrintToChat(client, "{red}[Shop] {default}You cannot use this VIP human skin as you're not a VIP.");
+        }
+    }
 }
+
+public bool IsVIPSkin(const char[] skin)
+{
+    if (StrContains(skin, "vip", false) != -1) {
+        return true;
+    }
+    return false;
+}
+
 
 public void Shop_Started()
 {
@@ -146,58 +184,89 @@ public bool OnShouldDisplayCategory(int client, CategoryId category_id, char[] c
 // ==============================================================================================================================
 void PopulateCategory(CategoryId category, const char[] source)
 {
-	char path[PMP];
-	BuildPath(Path_SM, SZF(path), source);
-	
-	KeyValues kv = new KeyValues("Skins");
-	if ( !kv.ImportFromFile(path) ) {
-		LogError("File \"%s\" not found or broken", source);
-		return;
-	}
-	
-	if ( !kv.GotoFirstSubKey() ) {
-		LogError("File \"%s\" is empty", source);
-		return;
-	}
-	
-	char name[128], anim[PMP];
-	do {
-		kv.GetSectionName(SZF(name));
-		kv.GetString("skin", SZF(path));
-		kv.GetString("anim", SZF(anim));
-		if ( !IsModelPrecached(path) ) {
-			PrecacheModel(path);
-		}
-		
-		Shop_StartItem(category, name);
-		
-		Shop_SetInfo(name, "", kv.GetNum("price", 99999999), kv.GetNum("sell_price", -1), Item_Togglable, kv.GetNum("duration", 86400));
-		Shop_SetCallbacks(INVALID_FUNCTION, OnSkinSelected, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, OnPreviewSkin);
-		Shop_SetCustomInfoString("skin", path);
-		Shop_SetCustomInfoString("anim", anim);
-		
-		Shop_EndItem();
-		
-	} while ( kv.GotoNextKey() );
+    char path[PMP];
+    BuildPath(Path_SM, SZF(path), source);
+
+    KeyValues kv = new KeyValues("Skins");
+    if (!kv.ImportFromFile(path)) {
+        LogError("File \"%s\" not found or broken", source);
+        return;
+    }
+
+    if (!kv.GotoFirstSubKey()) {
+        LogError("File \"%s\" is empty", source);
+        return;
+    }
+
+    char name[128], anim[PMP], vipStatus[8];
+    do {
+        kv.GetSectionName(SZF(name));
+        kv.GetString("skin", SZF(path));
+        kv.GetString("anim", SZF(anim));
+        int vipRequired = kv.GetNum("VIP", 0);  // 1 means VIP-only
+
+        if (!IsModelPrecached(path)) {
+            PrecacheModel(path);
+        }
+
+        Shop_StartItem(category, name);
+
+        // Set the price to 0 for VIP skins, otherwise use the configured price
+        int price = vipRequired == 1 ? 0 : kv.GetNum("price", 99999999);
+
+        Shop_SetInfo(
+            name, "", price, kv.GetNum("sell_price", -1), 
+            Item_Togglable, kv.GetNum("duration", 86400)
+        );
+        Shop_SetCallbacks(INVALID_FUNCTION, OnSkinSelected, INVALID_FUNCTION, INVALID_FUNCTION, INVALID_FUNCTION, OnPreviewSkin);
+        Shop_SetCustomInfoString("skin", path);
+        Shop_SetCustomInfoString("anim", anim);
+
+        // Store the VIP requirement as a custom field
+        kv.GetString("VIP", SZF(vipStatus), "0");
+        Shop_SetCustomInfoString("VIP", vipStatus);
+
+        Shop_EndItem();
+
+        // Retrieve item ID
+        ItemId itemId = Shop_GetItemId(category, name); // Pass both category and name
+        
+        // If the item is VIP-only, hide it for non-VIP clients
+        if (vipRequired && itemId != 0) { // Assuming 0 is invalid ItemId
+            Shop_SetItemHide(itemId, true); // Use the proper API to hide the item
+        }
+
+    } while (kv.GotoNextKey());
 }
+
+
 
 public ShopAction OnSkinSelected(int client, CategoryId category_id, const char[] category, ItemId item_id, const char[] item, bool isOn, bool elapsed)
 {
-	if ( !isOn && !elapsed ) {
-		if ( category_id == g_category_zombies ) {
-			Shop_GetItemCustomInfoString(item_id, "skin", g_skin_zombie[client], sizeof(g_skin_zombie[]), "");
-			Shop_ToggleClientCategoryOff(client, category_id);
-		}
-		else {
-			Shop_GetItemCustomInfoString(item_id, "skin", g_skin_human[client], sizeof(g_skin_human[]), "");
-			Shop_ToggleClientCategoryOff(client, category_id);
-		}
-		
-		CPrintToChat(client, "{green}[Shop] {default}Your skin will be changed in next round.");
-		return Shop_UseOn;
-	}
+    if (!isOn && !elapsed) {
+        char vipStatus[8];
+        Shop_GetItemCustomInfoString(item_id, "VIP", vipStatus, sizeof(vipStatus), "0");
+        int vipRequired = StringToInt(vipStatus);
 
-	return Shop_UseOff;
+        // Check if the client meets the VIP requirement.
+        if (vipRequired && !VIP_IsClientVIP(client)) {
+            CPrintToChat(client, "{red}[Shop] {default}This skin is only available to VIPs.");
+            return Shop_UseOff;
+        }
+
+        if (category_id == g_category_zombies) {
+            Shop_GetItemCustomInfoString(item_id, "skin", g_skin_zombie[client], sizeof(g_skin_zombie[]), "");
+            Shop_ToggleClientCategoryOff(client, category_id);
+        } else {
+            Shop_GetItemCustomInfoString(item_id, "skin", g_skin_human[client], sizeof(g_skin_human[]), "");
+            Shop_ToggleClientCategoryOff(client, category_id);
+        }
+
+        CPrintToChat(client, "{green}[Shop] {default}Your skin will be changed in the next round.");
+        return Shop_UseOn;
+    }
+
+    return Shop_UseOff;
 }
 
 public void OnPreviewSkin(int client, CategoryId category_id, const char[] category, ItemId item_id, const char[] item)
@@ -254,7 +323,7 @@ public void Ev_PlayerSpawn(Event event, const char[] event_name, bool dont_broad
 	CreateTimer(0.5, Timer_ChangeSkin, event.GetInt("userid"));
 }
 
-public void ZR_OnClientInfected(int client, int attacker, bool motherInfect, bool respawnOverride, bool respawn)
+public int ZR_OnClientInfected(int client, int attacker, bool motherInfect, bool respawnOverride, bool respawn)
 {
 	CreateTimer(0.5, Timer_ChangeSkin, UID(client));
 }
