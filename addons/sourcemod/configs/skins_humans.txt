@@ -7,6 +7,7 @@
 		"skin"				"models/error.mdl"	// model path
 		"anim"				""					// animation name when previewing
 		"duration"			"86400"				// skin duration in seconds
+		"VIP"				"1"                   // Only available for VIP. Price will be 0.
 	}
 	"Name of the human model 2"
 	{
@@ -15,5 +16,6 @@
 		"skin"				"models/error.mdl"	// model path
 		"anim"				""					// animation name when previewing
 		"duration"			"86400"				// skin duration in seconds
+		"VIP"				"0"			// Available for everyone and price will be normal.
 	}
 }
