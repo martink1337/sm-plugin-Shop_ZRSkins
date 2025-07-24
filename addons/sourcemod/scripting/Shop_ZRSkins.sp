@@ -209,6 +209,12 @@ void PopulateCategory(CategoryId category, const char[] source)
             PrecacheModel(path);
         }
 
+		ItemId existingItemId = Shop_GetItemId(category, name);
+		if (existingItemId != INVALID_ITEM && Shop_IsItemExists(existingItemId)) {
+			Shop_UnregisterItem(existingItemId);
+			LogMessage("Item %s already existed and was removed before re-adding", name);
+		}
+
         Shop_StartItem(category, name);
 
         // Set the price to 0 for VIP skins, otherwise use the configured price
