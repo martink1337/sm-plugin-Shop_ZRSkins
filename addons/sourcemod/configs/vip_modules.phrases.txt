@@ -1,0 +1,29 @@
+"Phrases"
+{
+    "AntiKnifeDamage"
+    {
+        "ru"        "Защита от урона ножом"
+        "en"        "Protection from knife damage"
+		"pt"        "Proteção contra danos com uma faca"
+		"fi"        "Suojaa veitsi vahinko"
+		"ua"        "Захист від шкоди ножем"
+		"es"        "Protección contra daños con cuchillo"
+		"ar"	    "الحماية من تلف السكين"
+    }
+    "VIP_ZRClasses"
+    {
+        "en"    "Zombie Reloaded Classes"
+    }
+    "VIP_ChatSettings"
+    {
+        "en"    "Chat Settings"
+    }
+    "VIP_vipTracers"
+    {
+        "en"    "VIP Tracers"
+    }
+    "CF_BuyVip"
+    {
+        "en"    "You must buy VIP to use this feature."
+    }
+}
